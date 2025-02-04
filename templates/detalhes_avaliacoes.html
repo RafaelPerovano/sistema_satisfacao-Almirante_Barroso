@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhes das Avaliações</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #f0f0f0; }
+        .details-container { margin-top: 10vh; }
+        .logo { max-width: 200px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container d-flex justify-content-center align-items-center details-container">
+        <div class="col-md-8 col-lg-6 bg-white p-5 rounded shadow">
+            <div class="text-center">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="logo">
+                <h3 class="mb-3">Detalhes das Avaliações - {{ tipo_usuario }}</h3>
+            </div>
+            <canvas id="graficoDetalhes"></canvas>
+            <ul class="list-group mt-4">
+                {% for satisfacao, qtd in dados %}
+                    {% if satisfacao == '0' %}
+                        {% set emoji = "😡" %}
+                    {% elif satisfacao == '1' %}
+                        {% set emoji = "😟" %}
+                    {% elif satisfacao == '2' %}
+                        {% set emoji = "😐" %}
+                    {% elif satisfacao == '3' %}
+                        {% set emoji = "🙂" %}
+                    {% elif satisfacao == '4' %}
+                        {% set emoji = "😀" %}
+                    {% else %}
+                        {% set emoji = "🤔" %}
+                    {% endif %}
+                    
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Satisfação {{ emoji }}
+                        <span class="badge bg-primary rounded-pill">{{ qtd }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+            <a href="{{ url_for('painel') }}" class="btn btn-secondary mt-3 w-100">Voltar</a>
+        </div>
+    </div>
+    
+    <script>
+        // Função para mapear satisfação para emoji
+        function getEmoji(satisfacao) {
+            const emojis = {
+                '0': '😡',
+                '1': '😟',
+                '2': '😐',
+                '3': '🙂',
+                '4': '😀',
+            };
+            return emojis[satisfacao] || '🤔';
+        }
+
+        const labels = [{% for satisfacao, qtd in dados %} getEmoji('{{ satisfacao }}'), {% endfor %}];
+        const dadosQuantidades = [{% for satisfacao, qtd in dados %} {{ qtd }}, {% endfor %}];
+        
+        const ctxDetalhes = document.getElementById('graficoDetalhes').getContext('2d');
+        new Chart(ctxDetalhes, {
+            type: 'pie',
+            data: {
+                labels: labels,  // Labels com emojis
+                datasets: [{
+                    label: 'Quantidade',
+                    data: dadosQuantidades,  // Quantidade de respostas
+                    backgroundColor: ['#ff0000', '#ff8000', '#ffff00', '#80ff00', '#008000']
+                }]
+            },
+            options: { responsive: true }
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

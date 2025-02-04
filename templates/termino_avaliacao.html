@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Termino da Avaliação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f0f0f0;
+        }
+        .evaluation-container {
+            margin-top: 10vh;
+        }
+        .logo {
+            max-width: 200px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container d-flex justify-content-center align-items-center evaluation-container">
+        <div class="col-md-6 col-lg-4 bg-white p-5 rounded shadow text-center">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="logo">
+            <h3 class="mb-3">Obrigado por sua avaliação!</h3>
+            <p class="text-muted">Sua opinião é muito importante para nós. Com sua avaliação podemos fazer essa escola um ambiente sempre melhor!</p>
+            <a href="/" class="btn btn-primary w-100">Voltar para o início</a>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
