@@ -104,7 +104,11 @@ def avaliacao():
 def detalhes_avaliacoes(tipo):
     cursor.execute("SELECT satisfacao, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao", (tipo,))
     dados = cursor.fetchall()
-    return render_template("detalhes_avaliacoes.html", dados=dados, tipo_usuario=tipo)
+
+    cursor.execute("SELECT comentarios from avaliacoes where tipo_usuario = %s", (tipo,))
+    comentarios = cursor.fetchall()
+
+    return render_template("detalhes_avaliacoes.html", dados=dados, tipo_usuario=tipo, comentarios=comentarios)
 
 @app.route("/painel", methods=['GET', 'POST'])
 def painel():

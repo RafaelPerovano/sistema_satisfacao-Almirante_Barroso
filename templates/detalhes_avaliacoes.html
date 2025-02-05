@@ -42,6 +42,18 @@
                     </li>
                 {% endfor %}
             </ul>
+            <p></p>
+            <div class="text-center">
+                <h5 class="mb-3">Comentários</h5>
+            </div>
+            <ul class="list-group mt-4">
+                {% for i in comentarios %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        "{{ i[0] }}"
+                    </li>
+                {% endfor %}
+            </ul>
+
             <a href="{{ url_for('painel') }}" class="btn btn-secondary mt-3 w-100">Voltar</a>
         </div>
     </div>
