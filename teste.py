@@ -3,9 +3,9 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 import psycopg2
 from db import cursor, conn
 
-#cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'tipo_usuario'")
+#cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'avaliacoes'")
 #cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
-cursor.execute("insert into usuarios (tipo_usuario_id, usuario) values (1, 'Karla')")
+cursor.execute("SELECT * from usuarios")
 
 mostra = cursor.fetchall()
 print(mostra)

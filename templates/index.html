@@ -37,6 +37,19 @@
                 <button class="btn btn-primary btn-user" onclick="showLoginForm('Terceirizada')">Terceirizada</button>
             </div>
 
+            {% with mensagens = get_flashed_messages(with_categories=true) %}
+                {% if mensagens %}
+                    <div class="alert-container">
+                        {% for category, mensagem in mensagens %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ mensagem }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
             <div id="loginForm" class="mt-4 d-none">
                 <form method="POST" action="/login">
                     <input type="hidden" name="tipo_usuario" id="tipo_usuario">

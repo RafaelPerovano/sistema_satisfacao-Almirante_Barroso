@@ -1,12 +1,11 @@
-
-from flask import Flask, request, render_template, redirect, session, url_for
+from flask import Flask, request, render_template, redirect, session, url_for, flash
 import psycopg2
 from db import cursor, conn
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.secret_key = 'secreta'  # chave secreta para sessões
-# app.permanent_session_lifetime = timedelta(minutes=1)
+app.secret_key = 'secreta'
+app.permanent_session_lifetime = timedelta(minutes=1)
 
 # classe para o modelo de usuário
 class User:
@@ -54,36 +53,40 @@ def login():
         cursor.execute("SELECT u.id, u.usuario, tu.nome AS tipo_usuario, u.ultima_avaliacao FROM usuarios u JOIN tipo_usuario tu ON u.tipo_usuario_id = tu.id WHERE u.usuario = %s", (usuario,))
         user_data = cursor.fetchone()
 
-        # faz o login do usuario
-        if user_data:
-            user = User(user_data[0], user_data[1], user_data[2], user_data[3])
-            
-            # armazena as informações do usuário na sessão
-            session['user_id'] = user.id
-            session['tipo_usuario'] = user.tipo_usuario
-            session['usuario'] = user.usuario
-            session['ultima_avaliacao'] = user.ultima_avaliacao
-            
-            avaliou = ja_avaliou()
+        if tipo_usuario and usuario:
+            # faz o login do usuario
+            if user_data:
+                user = User(user_data[0], user_data[1], user_data[2], user_data[3])
+                
+                # armazena as informações do usuário na sessão
+                session['user_id'] = user.id
+                session['tipo_usuario'] = user.tipo_usuario
+                session['usuario'] = user.usuario
+                session['ultima_avaliacao'] = user.ultima_avaliacao
+                
+                avaliou = ja_avaliou()
 
-            if usuario == 'rafael':
-                return redirect('painel') ###
+                if user.get_tipo_usuario() == 'Admin':
+                    return redirect('painel') 
+                
+                if avaliou == False:
+                    return redirect('avaliacao')
+                else:
+                    return redirect('login')
             
-            if avaliou == False:
-                return redirect('avaliacao')
-            else:
-                return redirect('login')
-            
-        # caso o usuário não esteja no bd
-        return redirect('/login')
-    
+            # caso o usuário não esteja no bd
+            flash("Credenciais inválidas!", "warning")
+            return redirect(url_for("login"))
+        
+        # caso nao seja enviado o tipo de usuario nem o nome de usuario
+        flash("Seu usuário e/ou tipo de usuario não pode estar vazio!", "danger")
+        return redirect(url_for("login"))
+
     return render_template("index.html")
 
 # página da avaliação
 @app.route("/avaliacao", methods=['GET', 'POST'])
 def avaliacao():
-    tipo_usuario = session.get('tipo_usuario')
-    print("tipo usuario: ",tipo_usuario)
     if request.method == 'POST':
         dados = request.form
 
@@ -92,14 +95,25 @@ def avaliacao():
         data = datetime.now()
         turno = verificar_turno(data.hour)
         data = datetime.now().strftime('%Y-%m-%d')
+        id_usuario = session.get('user_id')
+        tipo_usuario = session.get('tipo_usuario')
 
-        cursor.execute("INSERT INTO avaliacoes (tipo_usuario, satisfacao, comentarios, turno, data) VALUES (%s, %s, %s, %s, %s)", (tipo_usuario, satisfacao, comentarios, turno, data))
-        cursor.execute("UPDATE usuarios SET ultima_avaliacao = %s WHERE usuario = %s", (data, session.get('usuario')))
+        if satisfacao:
+            cursor.execute("INSERT INTO avaliacoes (id_usuario, tipo_usuario, satisfacao, comentarios, turno, data) VALUES (%s, %s, %s, %s, %s, %s)", (id_usuario, tipo_usuario, satisfacao, comentarios, turno, data))
+            cursor.execute("UPDATE usuarios SET ultima_avaliacao = %s WHERE usuario = %s", (data, session.get('usuario')))
 
-        return render_template("termino_avaliacao.html")
-
+            # logout do sistema
+            session.clear()
+    
+            return render_template("termino_avaliacao.html")
+        
+        # caso nao seja enviado o emoji
+        flash("Voce precisa selecionar um emogi!", "danger")
+        return redirect(url_for("avaliacao"))
+    
     return render_template("avaliacao.html")
 
+# página dos detalhes das avaliações
 @app.route("/detalhes_avaliacoes/<tipo>")
 def detalhes_avaliacoes(tipo):
     cursor.execute("SELECT satisfacao, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao", (tipo,))
@@ -108,37 +122,40 @@ def detalhes_avaliacoes(tipo):
     cursor.execute("SELECT comentarios from avaliacoes where tipo_usuario = %s", (tipo,))
     comentarios = cursor.fetchall()
 
+    # seleciona os dados mais detalhados das avaliações de acordo com o tipo de usuario
     return render_template("detalhes_avaliacoes.html", dados=dados, tipo_usuario=tipo, comentarios=comentarios)
 
+# página do painel que contém as avaliações
 @app.route("/painel", methods=['GET', 'POST'])
 def painel():
-    tipos_usuario = ['Professor', 'Aluno', 'Pedagogia', 'Terceirizada']
-    contagens = {}
+    tipo_usuario = session.get('tipo_usuario')
 
-    cursor.execute("SELECT COUNT(*) FROM avaliacoes")
-    n_avaliacoes = cursor.fetchone()[0]
+    if tipo_usuario == 'Admin':
+        tipos_usuario = ['Professor', 'Aluno', 'Pedagogia', 'Terceirizada']
+        contagens = {}
 
-    for tipo in tipos_usuario:
-        cursor.execute("SELECT COUNT(*) FROM avaliacoes WHERE tipo_usuario=%s", (tipo,))
-        contagens[tipo] = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM avaliacoes")
+        n_avaliacoes = cursor.fetchone()[0]
 
-    print(n_avaliacoes)
+        for tipo in tipos_usuario:
+            cursor.execute("SELECT COUNT(*) FROM avaliacoes WHERE tipo_usuario=%s", (tipo,))
+            contagens[tipo] = cursor.fetchone()[0]
 
-    porcentagens = {tipo: calcula_porcentagem(contagens[tipo], n_avaliacoes) for tipo in contagens}
+        print(n_avaliacoes)
 
-    return render_template("painel.html", 
-        n_avaliacoes=n_avaliacoes, 
-        por_professores=porcentagens['Professor'],  
-        por_alunos=porcentagens['Aluno'], 
-        por_pedagogia=porcentagens['Pedagogia'], 
-        por_terceirizada=porcentagens['Terceirizada']
-    )
+        porcentagens = {tipo: calcula_porcentagem(contagens[tipo], n_avaliacoes) for tipo in contagens}
 
-# logout da pagina
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect('login')
+        return render_template("painel.html", 
+            n_avaliacoes=n_avaliacoes, 
+            por_professores=porcentagens['Professor'],  
+            por_alunos=porcentagens['Aluno'], 
+            por_pedagogia=porcentagens['Pedagogia'], 
+            por_terceirizada=porcentagens['Terceirizada']
+        )
+    
+    # caso tente acessar o painel nao sendo admin
+    flash("Acesso não permitido!", "danger")
+    return redirect(url_for("login"))
 
 def ja_avaliou():
     hoje = datetime.now().strftime('%Y-%m-%d')
@@ -164,7 +181,6 @@ def calcula_porcentagem(qtd, total):
         porcentagem = (qtd / total) * 100
     else:
         porcentagem = 0
-    print(f"Qtd: {qtd}, Total: {total}, Porcentagem Calculada: {porcentagem}%")
     return porcentagem
 
 if __name__ == "__main__":
