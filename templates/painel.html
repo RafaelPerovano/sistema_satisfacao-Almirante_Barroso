@@ -31,34 +31,61 @@
             <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="logo">
             <h3 class="mb-3">Painel de Avaliações</h3>
             <p>Resumo das avaliações registradas no sistema.</p>
-            
+
+            <div class="mb-3">
+                <label for="dataInicio" class="form-label">Data Início:</label>
+                <input type="date" id="dataInicio" class="form-control">
+            </div>
+            <div class="mb-3">
+                <label for="dataFim" class="form-label">Data Fim:</label>
+                <input type="date" id="dataFim" class="form-control">
+            </div>
+            <button class="btn btn-primary" onclick="atualizarAvaliacoes()">Buscar</button>
+            <p></p>
             <div class="table-responsive">
                 <table class="table table-bordered">
                     <tr>
                         <th>Total de avaliações:</th>
-                        <td><span class="badge bg-primary">{{ n_avaliacoes }}</span></td>
+                        <td><span class="badge bg-primary" id="totalAvaliacoes">{{ n_avaliacoes }}</span></td>
                     </tr>
-                    {% set url_professor = url_for('detalhes_avaliacoes', tipo='Professor') %}
-                    <tr onclick="window.location.href='{{ url_professor }}'">
+                    <tr onclick="window.location.href='{{ url_for('detalhes_avaliacoes', tipo='Professor') }}'">
                         <th>Professores:</th>
-                        <td><span class="badge bg-success">{{ por_professores|round(1) }}%</span></td>
+                        <td><span class="badge bg-success" id="porProfessores">{{ por_professores|round(1) }}%</span></td>
                     </tr>
                     <tr onclick="window.location.href='{{ url_for('detalhes_avaliacoes', tipo='Aluno') }}'">
                         <th>Alunos:</th>
-                        <td><span class="badge bg-warning">{{ por_alunos|round(1) }}%</span></td>
+                        <td><span class="badge bg-warning" id="porAlunos">{{ por_alunos|round(1) }}%</span></td>
                     </tr>
                     <tr onclick="window.location.href='{{ url_for('detalhes_avaliacoes', tipo='Pedagogia') }}'">
                         <th>Pedagogia:</th>
-                        <td><span class="badge bg-info">{{ por_pedagogia|round(1) }}%</span></td>
+                        <td><span class="badge bg-info" id="porPedagogia">{{ por_pedagogia|round(1) }}%</span></td>
                     </tr>
                     <tr onclick="window.location.href='{{ url_for('detalhes_avaliacoes', tipo='Terceirizada') }}'">
                         <th>Terceirizados:</th>
-                        <td><span class="badge bg-danger">{{ por_terceirizada|round(1) }}%</span></td>
+                        <td><span class="badge bg-danger" id="porTerceirizada">{{ por_terceirizada|round(1) }}%</span></td>
                     </tr>
-                </table>
+                </table>                
             </div>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function atualizarAvaliacoes() {
+            let dataInicio = document.getElementById("dataInicio").value;
+            let dataFim = document.getElementById("dataFim").value;
+        
+            fetch(`/dados_avaliacoes?data_inicio=${dataInicio}&data_fim=${dataFim}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("totalAvaliacoes").innerText = data.n_avaliacoes;
+                document.getElementById("porProfessores").innerText = data.porcentagens.Professor.toFixed(1) + "%";
+                document.getElementById("porAlunos").innerText = data.porcentagens.Aluno.toFixed(1) + "%";
+                document.getElementById("porPedagogia").innerText = data.porcentagens.Pedagogia.toFixed(1) + "%";
+                document.getElementById("porTerceirizada").innerText = data.porcentagens.Terceirizada.toFixed(1) + "%";
+            })
+            .catch(error => console.error('Erro ao buscar os dados:', error));
+        }
+    </script>
+        
 </body>
 </html>

@@ -19,87 +19,73 @@
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="logo">
                 <h3 class="mb-3">Detalhes das Avaliações - {{ tipo_usuario }}</h3>
             </div>
+
+            <!-- Filtro por Data -->
+            <div class="mb-3">
+                <label for="data_inicio" class="form-label">Data Início:</label>
+                <input type="date" id="data_inicio" class="form-control">
+                <label for="data_fim" class="form-label mt-2">Data Fim:</label>
+                <input type="date" id="data_fim" class="form-control">
+                <button class="btn btn-primary w-100 mt-3" onclick="atualizarGrafico()">Filtrar</button>
+            </div>
+
             <canvas id="graficoDetalhes"></canvas>
-            <ul class="list-group mt-4">
-                {% for satisfacao, qtd in dados %}
-                    {% if satisfacao == '0' %}
-                        {% set emoji = "😡" %}
-                    {% elif satisfacao == '1' %}
-                        {% set emoji = "😟" %}
-                    {% elif satisfacao == '2' %}
-                        {% set emoji = "😐" %}
-                    {% elif satisfacao == '3' %}
-                        {% set emoji = "🙂" %}
-                    {% elif satisfacao == '4' %}
-                        {% set emoji = "😀" %}
-                    {% else %}
-                        {% set emoji = "🤔" %}
-                    {% endif %}
-                    
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        Satisfação {{ emoji }}
-                        <span class="badge bg-primary rounded-pill">{{ qtd }}</span>
-                    </li>
-                {% endfor %}
-            </ul>
-            <p></p>
+
+            <ul class="list-group mt-4" id="lista-avaliacoes"></ul>
+
             <div class="text-center">
                 <h5 class="mb-3">Comentários</h5>
             </div>
-            <ul class="list-group mt-4">
-                {% for i in comentarios %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        "{{ i[0] }}"
-                    </li>
-                {% endfor %}
-            </ul>
+            <ul class="list-group mt-4" id="lista-comentarios"></ul>
 
             <a href="{{ url_for('painel') }}" class="btn btn-secondary mt-3 w-100">Voltar</a>
         </div>
     </div>
-    
+
     <script>
-        // Função para mapear satisfação para emoji
+        let chart;
         function getEmoji(satisfacao) {
-            const emojis = {
-                '0': '😡',
-                '1': '😟',
-                '2': '😐',
-                '3': '🙂',
-                '4': '😀',
-            };
+            const emojis = { '0': '😡', '1': '😟', '2': '😐', '3': '🙂', '4': '😀' };
             return emojis[satisfacao] || '🤔';
         }
 
-        const labels = [{% for satisfacao, qtd in dados %} getEmoji('{{ satisfacao }}'), {% endfor %}];
-        const dadosQuantidades = [{% for satisfacao, qtd in dados %} {{ qtd }}, {% endfor %}];
-        
-        const ctxDetalhes = document.getElementById('graficoDetalhes').getContext('2d');
-        new Chart(ctxDetalhes, {
-            type: 'pie',
-            data: {
-                labels: labels,  // Labels com emojis
-                datasets: [{
-                    label: 'Quantidade',
-                    data: dadosQuantidades,  // Quantidade de respostas
-                    backgroundColor: ['#ff0000', '#ff8000', '#ffff00', '#80ff00', '#008000']
-                }]
-            },
-            options: { responsive: true }
-        });
-        function verificarSessao(event) {
-            event.preventDefault();
-            fetch("{{ url_for('painel') }}", { method: "GET" })
-                .then(response => {
-                    if (response.redirected) {
-                        window.location.href = response.url;
-                    } else {
-                        window.location.href = "{{ url_for('painel') }}";
-                    }
+        function atualizarGrafico() {
+            const dataInicio = document.getElementById('data_inicio').value;
+            const dataFim = document.getElementById('data_fim').value;
+            const tipo = "{{ tipo_usuario }}";
+
+            fetch(`/dados_detalhes_avaliacoes?data_inicio=${dataInicio}&data_fim=${dataFim}&tipo=${tipo}`)
+                .then(response => response.json())
+                .then(data => {
+                    const labels = Object.keys(data.dados).map(getEmoji);
+                    const valores = Object.values(data.dados);
+                    
+                    if (chart) chart.destroy();
+                    
+                    const ctx = document.getElementById('graficoDetalhes').getContext('2d');
+                    chart = new Chart(ctx, {
+                        type: 'pie',
+                        data: {
+                            labels: labels,
+                            datasets: [{ label: 'Quantidade', data: valores, backgroundColor: ['#ff0000', '#ff8000', '#ffff00', '#80ff00', '#008000'] }]
+                        },
+                        options: { responsive: true }
+                    });
+
+                    const listaAvaliacao = document.getElementById('lista-avaliacoes');
+                    listaAvaliacao.innerHTML = labels.map((emoji, i) => 
+                        `<li class="list-group-item d-flex justify-content-between align-items-center">
+                            Satisfação ${emoji}
+                            <span class="badge bg-primary rounded-pill">${valores[i]}</span>
+                        </li>`).join('');
+
+                    const listaComentarios = document.getElementById('lista-comentarios');
+                    listaComentarios.innerHTML = data.comentarios.map(comentario => 
+                        `<li class="list-group-item">"${comentario}"</li>`).join('');
                 });
         }
     </script>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

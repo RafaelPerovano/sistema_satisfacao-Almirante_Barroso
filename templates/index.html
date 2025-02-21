@@ -68,10 +68,28 @@
         function showLoginForm(tipo) {
             document.getElementById('tipo_usuario').value = tipo;
             document.getElementById('loginForm').classList.remove('d-none');
+    
+            let buttons = document.querySelectorAll('.btn-user');
+            buttons.forEach(btn => {
+                btn.classList.remove('btn-dark');
+                btn.classList.add('btn-primary');
+            });
+    
+            let selectedButton = [...buttons].find(btn => btn.textContent.trim() === tipo);
+            if (selectedButton) {
+                selectedButton.classList.remove('btn-primary');
+                selectedButton.classList.add('btn-dark');
+            }
         }
-
+    
         function hideLoginForm() {
             document.getElementById('loginForm').classList.add('d-none');
+    
+            let buttons = document.querySelectorAll('.btn-user');
+            buttons.forEach(btn => {
+                btn.classList.remove('btn-dark');
+                btn.classList.add('btn-primary');
+            });
         }
     </script>
 

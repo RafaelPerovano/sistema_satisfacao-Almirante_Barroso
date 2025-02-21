@@ -1,11 +1,11 @@
-from flask import Flask, request, render_template, redirect, session, url_for, flash
+from flask import Flask, request, render_template, redirect, session, url_for, flash, jsonify
 import psycopg2
 from db import cursor, conn
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'secreta'
-app.permanent_session_lifetime = timedelta(minutes=1)
+# app.permanent_session_lifetime = timedelta(minutes=3)
 
 # classe para o modelo de usuário
 class User:
@@ -47,8 +47,8 @@ def index():
 @app.route("/login", methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        tipo_usuario = request.form.get('tipo_usuario')
-        usuario = request.form.get('usuario')
+        tipo_usuario = request.form['tipo_usuario']
+        usuario = request.form['usuario']
 
         cursor.execute("SELECT u.id, u.usuario, tu.nome AS tipo_usuario, u.ultima_avaliacao FROM usuarios u JOIN tipo_usuario tu ON u.tipo_usuario_id = tu.id WHERE u.usuario = %s", (usuario,))
         user_data = cursor.fetchone()
@@ -116,14 +116,51 @@ def avaliacao():
 # página dos detalhes das avaliações
 @app.route("/detalhes_avaliacoes/<tipo>")
 def detalhes_avaliacoes(tipo):
-    cursor.execute("SELECT satisfacao, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao", (tipo,))
-    dados = cursor.fetchall()
+    tipo_usuario = session.get('tipo_usuario')
 
-    cursor.execute("SELECT comentarios from avaliacoes where tipo_usuario = %s", (tipo,))
-    comentarios = cursor.fetchall()
+    if tipo_usuario == 'Admin':
+        cursor.execute("SELECT satisfacao, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao", (tipo,))
+        dados = cursor.fetchall()
 
-    # seleciona os dados mais detalhados das avaliações de acordo com o tipo de usuario
-    return render_template("detalhes_avaliacoes.html", dados=dados, tipo_usuario=tipo, comentarios=comentarios)
+        cursor.execute("SELECT comentarios from avaliacoes where tipo_usuario = %s", (tipo,))
+        comentarios = cursor.fetchall()
+
+        # seleciona os dados mais detalhados das avaliações de acordo com o tipo de usuario
+        return render_template("detalhes_avaliacoes.html", dados=dados, tipo_usuario=tipo, comentarios=comentarios)
+
+    # caso tente acessar os detalhes das avaliações não sendo admin
+    flash("Acesso não permitido!", "danger")
+    return redirect(url_for("login"))
+
+@app.route("/dados_detalhes_avaliacoes", methods=['GET'])
+def dados_detalhes_avaliacoes():
+    data_inicio = request.args.get('data_inicio')
+    data_fim = request.args.get('data_fim')
+    tipo = request.args.get('tipo')
+
+    dados = detalhes_avaliacoes_data(data_inicio, data_fim, tipo)
+    
+    return jsonify(dados)
+
+def detalhes_avaliacoes_data(data_inicio, data_fim, tipo):
+    if data_inicio and data_fim:
+        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s GROUP BY satisfacao ORDER BY satisfacao", 
+                       (tipo, data_inicio, data_fim))
+        dados = dict(cursor.fetchall())
+
+        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s AND comentarios IS NOT NULL", 
+                       (tipo, data_inicio, data_fim))
+        comentarios = [row[0] for row in cursor.fetchall()]
+    else:
+        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao ORDER BY satisfacao", 
+                       (tipo,))
+        dados = dict(cursor.fetchall())
+
+        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND comentarios IS NOT NULL", 
+                       (tipo,))
+        comentarios = [row[0] for row in cursor.fetchall()]
+
+    return {"dados": dados, "comentarios": comentarios, "tipo_usuario": tipo}
 
 # página do painel que contém as avaliações
 @app.route("/painel", methods=['GET', 'POST'])
@@ -133,7 +170,7 @@ def painel():
     if tipo_usuario == 'Admin':
         tipos_usuario = ['Professor', 'Aluno', 'Pedagogia', 'Terceirizada']
         contagens = {}
-
+        
         cursor.execute("SELECT COUNT(*) FROM avaliacoes")
         n_avaliacoes = cursor.fetchone()[0]
 
@@ -153,9 +190,49 @@ def painel():
             por_terceirizada=porcentagens['Terceirizada']
         )
     
-    # caso tente acessar o painel nao sendo admin
+    # caso tente acessar o painel não sendo admin
     flash("Acesso não permitido!", "danger")
     return redirect(url_for("login"))
+
+@app.route("/dados_avaliacoes", methods=['GET'])
+def dados_avaliacoes():
+    data_inicio = request.args.get('data_inicio')
+    data_fim = request.args.get('data_fim')
+
+    dados = avaliacoes_data(data_inicio, data_fim)
+
+    return jsonify(dados)
+
+def avaliacoes_data(data_inicio, data_fim):
+    tipos_usuario = ['Professor', 'Aluno', 'Pedagogia', 'Terceirizada']
+    contagens = {}
+
+    if data_inicio and data_fim:
+        cursor.execute("SELECT COUNT(*) FROM avaliacoes WHERE data BETWEEN %s AND %s", (data_inicio, data_fim))
+        n_avaliacoes = cursor.fetchone()[0]
+
+        for tipo in tipos_usuario:
+            cursor.execute("SELECT COUNT(*) FROM avaliacoes WHERE tipo_usuario=%s AND data BETWEEN %s AND %s", (tipo, data_inicio, data_fim))
+            contagens[tipo] = cursor.fetchone()[0]
+        
+        porcentagens = {tipo: calcula_porcentagem(contagens[tipo], n_avaliacoes) for tipo in contagens}
+
+        dados = {"n_avaliacoes": n_avaliacoes, "porcentagens": porcentagens}
+
+        return dados
+    
+    cursor.execute("SELECT COUNT(*) FROM avaliacoes")
+    n_avaliacoes = cursor.fetchone()[0]
+
+    for tipo in tipos_usuario:
+        cursor.execute("SELECT COUNT(*) FROM avaliacoes WHERE tipo_usuario=%s", (tipo,))
+        contagens[tipo] = cursor.fetchone()[0]
+
+    porcentagens = {tipo: calcula_porcentagem(contagens[tipo], n_avaliacoes) for tipo in contagens}
+
+    dados = {"n_avaliacoes": n_avaliacoes, "porcentagens": porcentagens}
+
+    return dados
 
 def ja_avaliou():
     hoje = datetime.now().strftime('%Y-%m-%d')
