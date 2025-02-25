@@ -1,7 +1,9 @@
-from flask import Flask, request, render_template, redirect, session, url_for, flash, jsonify
+from flask import Flask, request, render_template, redirect, session, url_for, flash, jsonify, send_file
 import psycopg2
 from db import cursor, conn
 from datetime import datetime, timedelta
+from cria_excel import cria_excel_tipo
+
 
 app = Flask(__name__)
 app.secret_key = 'secreta'
@@ -144,20 +146,16 @@ def dados_detalhes_avaliacoes():
 
 def detalhes_avaliacoes_data(data_inicio, data_fim, tipo):
     if data_inicio and data_fim:
-        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s GROUP BY satisfacao ORDER BY satisfacao", 
-                       (tipo, data_inicio, data_fim))
+        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s GROUP BY satisfacao ORDER BY satisfacao", (tipo, data_inicio, data_fim))
         dados = dict(cursor.fetchall())
 
-        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s AND comentarios IS NOT NULL", 
-                       (tipo, data_inicio, data_fim))
+        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s AND comentarios IS NOT NULL", (tipo, data_inicio, data_fim))
         comentarios = [row[0] for row in cursor.fetchall()]
     else:
-        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao ORDER BY satisfacao", 
-                       (tipo,))
+        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao ORDER BY satisfacao", (tipo,))
         dados = dict(cursor.fetchall())
 
-        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND comentarios IS NOT NULL", 
-                       (tipo,))
+        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND comentarios IS NOT NULL", (tipo,))
         comentarios = [row[0] for row in cursor.fetchall()]
 
     return {"dados": dados, "comentarios": comentarios, "tipo_usuario": tipo}
@@ -233,6 +231,26 @@ def avaliacoes_data(data_inicio, data_fim):
     dados = {"n_avaliacoes": n_avaliacoes, "porcentagens": porcentagens}
 
     return dados
+
+@app.route("/dados_excel_tipo", methods=['GET'])
+def dados_excel_tipo():
+    tipo_usuario = str(request.args.get('tipo_usuario'))
+    data_inicio = str(request.args.get('data_inicio'))
+    data_fim = str(request.args.get('data_fim'))
+
+    if data_inicio and data_fim:
+        cursor.execute("SELECT data, satisfacao, comentarios, turno FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s ORDER BY data ASC", (tipo_usuario, data_inicio, data_fim))
+        avaliacoes = cursor.fetchall()
+
+        cria_excel_ = cria_excel_tipo(tipo_usuario, data_inicio, data_fim, avaliacoes)
+    else:
+        cursor.execute("SELECT data, satisfacao, comentarios, turno FROM avaliacoes WHERE tipo_usuario = %s ORDER BY data ASC", (tipo_usuario,))
+        avaliacoes = cursor.fetchall()
+
+        cria_excel_ = cria_excel_tipo(tipo_usuario, data_inicio, data_fim, avaliacoes)
+
+    nome_arquivo = f"Relatorio {tipo_usuario}, {data_inicio} - {data_fim}.xlsx"
+    return send_file(nome_arquivo, as_attachment=True)
 
 def ja_avaliou():
     hoje = datetime.now().strftime('%Y-%m-%d')
