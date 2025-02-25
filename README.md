@@ -19,28 +19,18 @@ Este é um projeto simples de sistema de avaliação escolar feito com Flask e P
 - Envio de relatórios por email (funcionalidade a ser implementada)
 
 ## Como Rodar o Projeto
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
-   ```
+1. Clone o repositório
 2. Crie e ative um ambiente virtual (opcional, mas recomendado):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # ou venv\Scripts\activate no Windows
-   ```
+   ```python -m venv venvsource venv/bin/activate  # ou venv\Scripts\activate no Windows```
 3. Instale as dependências:
-   ```bash
-   pip install -r requirements.txt
-   ```
+   ```pip install -r requirements.txt```
 4. Configure o banco de dados PostgreSQL:
    - Crie um arquivo `.env` na raiz do projeto e adicione a variável de ambiente `DATABASE_URL` com a URL do seu banco de dados PostgreSQL:
      ```
-     DATABASE_URL="sua_url_do_banco_de_dados"
+     DATABASE_URL="url_bd"
      ```
 5. Execute o Flask:
-   ```bash
-   python app.py
-   ```
+   ```python app.py```
    O servidor Flask estará rodando no `http://127.0.0.1:5000/`.
 
 ## Estrutura do Projeto
