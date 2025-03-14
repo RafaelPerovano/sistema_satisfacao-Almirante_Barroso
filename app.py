@@ -7,6 +7,7 @@ from cria_excel import cria_excel_tipo
 
 app = Flask(__name__)
 app.secret_key = 'secreta'
+app.config.from_pyfile('config.cfg', silent=True)
 # app.permanent_session_lifetime = timedelta(minutes=3)
 
 # classe para o modelo de usuário
@@ -115,51 +116,6 @@ def avaliacao():
     
     return render_template("avaliacao.html")
 
-# página dos detalhes das avaliações
-@app.route("/detalhes_avaliacoes/<tipo>")
-def detalhes_avaliacoes(tipo):
-    tipo_usuario = session.get('tipo_usuario')
-
-    if tipo_usuario == 'Admin':
-        cursor.execute("SELECT satisfacao, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao", (tipo,))
-        dados = cursor.fetchall()
-
-        cursor.execute("SELECT comentarios from avaliacoes where tipo_usuario = %s", (tipo,))
-        comentarios = cursor.fetchall()
-
-        # seleciona os dados mais detalhados das avaliações de acordo com o tipo de usuario
-        return render_template("detalhes_avaliacoes.html", dados=dados, tipo_usuario=tipo, comentarios=comentarios)
-
-    # caso tente acessar os detalhes das avaliações não sendo admin
-    flash("Acesso não permitido!", "danger")
-    return redirect(url_for("login"))
-
-@app.route("/dados_detalhes_avaliacoes", methods=['GET'])
-def dados_detalhes_avaliacoes():
-    data_inicio = request.args.get('data_inicio')
-    data_fim = request.args.get('data_fim')
-    tipo = request.args.get('tipo')
-
-    dados = detalhes_avaliacoes_data(data_inicio, data_fim, tipo)
-    
-    return jsonify(dados)
-
-def detalhes_avaliacoes_data(data_inicio, data_fim, tipo):
-    if data_inicio and data_fim:
-        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s GROUP BY satisfacao ORDER BY satisfacao", (tipo, data_inicio, data_fim))
-        dados = dict(cursor.fetchall())
-
-        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s AND comentarios IS NOT NULL", (tipo, data_inicio, data_fim))
-        comentarios = [row[0] for row in cursor.fetchall()]
-    else:
-        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao ORDER BY satisfacao", (tipo,))
-        dados = dict(cursor.fetchall())
-
-        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND comentarios IS NOT NULL", (tipo,))
-        comentarios = [row[0] for row in cursor.fetchall()]
-
-    return {"dados": dados, "comentarios": comentarios, "tipo_usuario": tipo}
-
 # página do painel que contém as avaliações
 @app.route("/painel", methods=['GET', 'POST'])
 def painel():
@@ -191,6 +147,51 @@ def painel():
     # caso tente acessar o painel não sendo admin
     flash("Acesso não permitido!", "danger")
     return redirect(url_for("login"))
+
+# página dos detalhes das avaliações
+@app.route("/detalhes_avaliacoes/<tipo>")
+def detalhes_avaliacoes(tipo):
+    tipo_usuario = session.get('tipo_usuario')
+
+    if tipo_usuario == 'Admin':
+            cursor.execute("SELECT satisfacao, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao", (tipo,))
+            dados = cursor.fetchall()
+
+            cursor.execute("SELECT comentarios from avaliacoes where tipo_usuario = %s", (tipo,))
+            comentarios = cursor.fetchall()
+
+            # seleciona os dados mais detalhados das avaliações de acordo com o tipo de usuario
+            return render_template("detalhes_avaliacoes.html", dados=dados, tipo_usuario=tipo, comentarios=comentarios)
+
+    # caso tente acessar os detalhes das avaliações não sendo admin
+    flash("Acesso não permitido!", "danger")
+    return redirect(url_for("login"))
+
+@app.route("/dados_detalhes_avaliacoes", methods=['GET'])
+def dados_detalhes_avaliacoes():
+    data_inicio = request.args.get('data_inicio')
+    data_fim = request.args.get('data_fim')
+    tipo = request.args.get('tipo')
+
+    dados = detalhes_avaliacoes_data(data_inicio, data_fim, tipo)
+    
+    return jsonify(dados)
+
+def detalhes_avaliacoes_data(data_inicio, data_fim, tipo):
+    if data_inicio and data_fim:
+        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s GROUP BY satisfacao ORDER BY satisfacao", (tipo, data_inicio, data_fim))
+        dados = dict(cursor.fetchall())
+
+        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s AND comentarios IS NOT NULL", (tipo, data_inicio, data_fim))
+        comentarios = [row[0] for row in cursor.fetchall()]
+    else:
+        cursor.execute("SELECT satisfacao::TEXT, COUNT(*) FROM avaliacoes WHERE tipo_usuario = %s GROUP BY satisfacao ORDER BY satisfacao", (tipo,))
+        dados = dict(cursor.fetchall())
+
+        cursor.execute("SELECT comentarios FROM avaliacoes WHERE tipo_usuario = %s AND comentarios IS NOT NULL", (tipo,))
+        comentarios = [row[0] for row in cursor.fetchall()]
+
+    return {"dados": dados, "comentarios": comentarios, "tipo_usuario": tipo}
 
 @app.route("/dados_avaliacoes", methods=['GET'])
 def dados_avaliacoes():
@@ -232,25 +233,37 @@ def avaliacoes_data(data_inicio, data_fim):
 
     return dados
 
-@app.route("/dados_excel_tipo", methods=['GET'])
+@app.route("/dados_excel_tipo", methods=['POST'])
 def dados_excel_tipo():
-    tipo_usuario = str(request.args.get('tipo_usuario'))
-    data_inicio = str(request.args.get('data_inicio'))
-    data_fim = str(request.args.get('data_fim'))
+    data = request.get_json()
+    tipo_usuario = str(data.get('tipo_usuario'))
+    data_inicio = str(data.get('data_inicio'))
+    data_fim = str(data.get('data_fim'))
 
+    gerou_excel = gera_excel(tipo_usuario, data_inicio, data_fim)
+
+    if gerou_excel:
+        response = {"status": "success", "message": "Email enviado!"}
+    else:
+        response = {"status": "danger", "message": "Email não foi enviado!"}
+
+    return jsonify(response)
+
+def gera_excel(tipo_usuario, data_inicio, data_fim):
     if data_inicio and data_fim:
         cursor.execute("SELECT data, satisfacao, comentarios, turno FROM avaliacoes WHERE tipo_usuario = %s AND data BETWEEN %s AND %s ORDER BY data ASC", (tipo_usuario, data_inicio, data_fim))
         avaliacoes = cursor.fetchall()
 
-        cria_excel_ = cria_excel_tipo(tipo_usuario, data_inicio, data_fim, avaliacoes)
+        cria_excel = cria_excel_tipo(tipo_usuario, data_inicio, data_fim, avaliacoes)
     else:
         cursor.execute("SELECT data, satisfacao, comentarios, turno FROM avaliacoes WHERE tipo_usuario = %s ORDER BY data ASC", (tipo_usuario,))
         avaliacoes = cursor.fetchall()
 
-        cria_excel_ = cria_excel_tipo(tipo_usuario, data_inicio, data_fim, avaliacoes)
+        cria_excel = cria_excel_tipo(tipo_usuario, data_inicio, data_fim, avaliacoes)
+    
+    print("CRIA EXCEL:", cria_excel)
 
-    nome_arquivo = f"Relatorio {tipo_usuario}, {data_inicio} - {data_fim}.xlsx"
-    return send_file(nome_arquivo, as_attachment=True)
+    return cria_excel
 
 def ja_avaliou():
     hoje = datetime.now().strftime('%Y-%m-%d')
@@ -271,12 +284,10 @@ def verificar_turno(hora):
     else:
         return "fora do horario"
 
-def calcula_porcentagem(qtd, total):
-    if total > 0:
-        porcentagem = (qtd / total) * 100
-    else:
-        porcentagem = 0
-    return porcentagem
+def calcula_porcentagem(qnt, total):
+    if total == 0:
+        return 0
+    return round((qnt / total) * 100, 1)
 
 if __name__ == "__main__":
     app.run(debug=True)
