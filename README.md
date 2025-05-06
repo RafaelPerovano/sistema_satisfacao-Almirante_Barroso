@@ -38,7 +38,10 @@ Este é um projeto simples de sistema de avaliação escolar feito com Flask e P
 /
 |-- app.py
 |-- db.py
-|-- cria_excel.py
+|-- utils/
+    |-- cria_excel.py
+    |-- envia_email.py
+    |-- tokens.py
 |-- static/
 |   |-- img/
 |-- templates/
