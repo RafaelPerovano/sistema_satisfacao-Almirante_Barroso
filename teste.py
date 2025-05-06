@@ -1,12 +1,9 @@
-from cria_excel import enviar_email
+from db import conn, cursor
 
-enviar_email("Teste!", "teste", "tcurie.rpgp@gmail.com", "rafaeltestepython@gmail.com")
-"""
 #cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'avaliacoes'")
 #cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';")
-
-estrutura_tabela = "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'avaliacoes'"
+#"CREATE table admin (id SERIAL PRIMARY KEY, nome VARCHAR(100) NOT NULL, email VARCHAR(150) UNIQUE NOT NULL, senha TEXT NOT NULL)"
+estrutura_tabela = "select * from admins where usuario='Rafael'"
 cursor.execute(estrutura_tabela)
-mostra = cursor.fetchall()
-print(mostra)"
-"""
+mostrar=cursor.fetchall()
+print(mostrar)

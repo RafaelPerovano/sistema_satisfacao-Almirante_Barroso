@@ -1,0 +1,4 @@
+lembrar de mudar o login e nao precisar escolher o tipo de usuario 
+somenet logar. para as acoes que forem precisar disso eu puxo do banco de dados
+
+fazer as recuperaçoes de senhas (so o front ta pronto)
